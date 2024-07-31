@@ -94,11 +94,11 @@ if not go_ids:
 
 html = f"""
 <script type="module" src="https://www.swissbiopics.org/static/swissbiopics.js"></script>
-<template id="sibSwissBioPicsSlLiItem">
-    <li class="subcellular_location">
-         <a class="subcell_name"></a>
-         <span class="subcell_description"></span>
-    </li>
+<template id="sibSwissBioPicsSlLiItem" style="display:none;">
+    <tr class="subcellular_location" style="display:none;">
+         <td><a class="subcell_name"></a></td>
+         <td class="subcell_description"></td>
+    </tr>
 </template>
 <sib-swissbiopics-sl taxid="{tax_id}" gos="{','.join(go_ids)}"></sib-swissbiopics-sl>
 <template id="sibSwissBioPicsStyle">
@@ -115,4 +115,4 @@ html = f"""
 """
 
 # Render the Lorikeet HTML
-components.html(html, height=1000, width=1500, scrolling=True)
+components.html(html, height=1000, width=2000, scrolling=True)
