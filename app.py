@@ -1,3 +1,5 @@
+from io import StringIO
+
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -30,6 +32,71 @@ def add_go_id():
     if cancel:
         st.rerun()
 
+@st.dialog('Paste')
+def paste_go_ids():
+    input_data = st.text_area('Paste GO IDs', key='paste_go_ids')
+
+    # Check if input_data is empty
+    if not input_data.strip():
+        st.error('Please enter valid GO ID data')
+        st.stop()
+
+    # Try to read the pasted data
+    try:
+        go_ids = pd.read_csv(StringIO(input_data), sep='\t')
+    except Exception as e:
+        st.error(f'Error reading data: {e}')
+        st.stop()
+
+    # Ensure required columns exist
+    required_columns = {'ID', 'Color', 'Opacity'}
+    if not required_columns.issubset(go_ids.columns):
+        missing = required_columns - set(go_ids.columns)
+        st.error(f'Missing columns in input: {", ".join(missing)}')
+        st.stop()
+
+    c1, c2 = st.columns(2)
+    submit = c1.button('Add', use_container_width=True, type='primary', key='add_go_id')
+    cancel = c2.button('Cancel', use_container_width=True, type='secondary', key='cancel_go_id')
+
+    # Handle Add button click
+    if submit:
+        for _, row in go_ids.iterrows():
+            go_id = int(row['ID'])
+            color = str(row['Color'])
+            opacity = float(row['Opacity'])
+            # Ensure color starts with '#'
+            color = color if color.startswith('#') else f'#{color}'
+            # Check if the GO ID already exists in the session state
+            if go_id in [x[0] for x in st.session_state['selection']]:
+
+                # remove existing entry
+                st.session_state['selection'] = [x for x in st.session_state['selection'] if x[0] != go_id]
+
+            # Add new GO ID entry
+            st.session_state['selection'].append((go_id, color, opacity))
+
+        st.rerun()
+
+    # Handle Cancel button click
+    if cancel:
+        st.rerun()
+
+@st.dialog('Copy')
+def copy_go_ids():
+    # Display current selection in DataFrame format
+    if st.session_state['selection']:
+        curr_data = pd.DataFrame(st.session_state['selection'], columns=['ID', 'Color', 'Opacity'])
+        txt = curr_data.to_csv(index=False, sep='\t')
+        st.code(txt, language='text')
+    else:
+        st.warning('No GO IDs to display')
+
+    # Cancel button to close dialog
+    cancel = st.button('Cancel', use_container_width=True, type='secondary', key='cancel_copy_go_id')
+
+    if cancel:
+        st.rerun()
 
 @st.dialog('Edit GO ID')
 def edit_go_id(go_id, color, opacity):
@@ -51,6 +118,9 @@ with st.sidebar:
     tax_id = st.number_input('Tax ID', value=9606)
 
     df = pd.DataFrame(st.session_state['selection'], columns=['ID', 'Color', 'Opacity'])
+
+    st.subheader('Selection', divider=True)
+
     selection = st.dataframe(df, use_container_width=True, hide_index=True, selection_mode='single-row',
                              on_select='rerun')
     selected_indices = [row for row in selection['selection']['rows']]
@@ -59,6 +129,8 @@ with st.sidebar:
     selected_go_id = None
     if len(selected_ids) == 1:
         selected_go_id = selected_ids[0]
+
+    st.subheader('Single Operations', divider=True)
 
     c1, c2, c3, c4 = st.columns(4)
     if c1.button('Add', type='secondary', use_container_width=True):
@@ -71,6 +143,14 @@ with st.sidebar:
     if c4.button('Clear', type='secondary', use_container_width=True):
         st.session_state['selection'] = []
         st.rerun()
+
+    st.subheader('Bulk Operations', divider=True)
+
+    c1, c2 = st.columns(2)
+    if c1.button('Paste', type='secondary', use_container_width=True):
+        paste_go_ids()
+    if c2.button('Copy', type='secondary', use_container_width=True):
+        copy_go_ids()
 
 go_ids = list(map(str, [item[0] for item in st.session_state['selection']]))
 go_styles = "\n".join(
@@ -109,10 +189,17 @@ html = f"""
         ul.notpresent li > .subcell_description {{
             display: none;
         }}
+        svg .subcell_name {{
+            display: none;
+        }}
+        svg .subcell_description {{
+            display: none;
+        }}
         {go_styles}
     </style>
 </template>
 """
+
 
 # Render the Lorikeet HTML
 components.html(html, height=1000, width=2000, scrolling=True)
